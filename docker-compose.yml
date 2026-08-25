@@ -1,0 +1,146 @@
+services:
+
+  # ── 1. Ollama — serveur LLM local ─────────────────────────────
+  # Port 11435 (au lieu du 11434 par défaut) pour ne pas rentrer en
+  # conflit avec un éventuel Ollama natif déjà installé sur le PC hôte.
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11435
+    ports:
+      - "127.0.0.1:11435:11435"   # localhost uniquement — pas exposé sur le réseau
+    volumes:
+      - ollama_data:/root/.ollama   # modèles persistés entre redémarrages
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ── 2. Téléchargement du modèle (se lance 1 seule fois) ───────
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: ollama-pull
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_HOST=http://ollama:11435
+    entrypoint: >
+      sh -c "
+        ollama pull phi4-mini:3.8b-q4_K_M &&
+        ollama pull nomic-embed-text:latest
+      "
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: "no"   # ne tourne qu'une fois, puis s'arrête
+
+  # ── 3. LightRAG Server + Web UI ───────────────────────────────
+  lightrag:
+    image: ghcr.io/hkuds/lightrag:latest
+    container_name: lightrag
+    restart: unless-stopped
+    depends_on:
+      ollama:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:9621:9621"     # localhost uniquement — pas exposé sur le réseau
+    volumes:
+      - lightrag_data:/app/data     # index + métadonnées persistés
+      # Avec WORKSPACE défini, LightRAG scanne en réalité
+      # inputs/<workspace>/ — on monte donc directement dessus pour que
+      # déposer un fichier dans knowledge_base/ marche sans sous-dossier.
+      - ./knowledge_base:/app/data/inputs/kb
+    environment:
+      # ── Serveur ──────────────────────────────────────────────
+      PORT: 9621
+      WEBUI_TITLE: "Assistant Documents"
+      WEBUI_DESCRIPTION: "100% local — aucune donnée ne sort du PC"
+      # Workspace dédié : isole ce stockage de celui du service
+      # lightrag-analyse (documents sensibles), voir plus bas.
+      WORKSPACE: kb
+
+      # ── LLM (Ollama en conteneur par défaut, LM Studio en option via .env) ─
+      LLM_BINDING: ${LLM_BINDING:-ollama}
+      LLM_MODEL: ${LLM_MODEL:-phi4-mini:3.8b-q4_K_M}
+      LLM_BINDING_HOST: ${LLM_BINDING_HOST:-http://ollama:11435}
+      LLM_BINDING_API_KEY: ${LLM_BINDING_API_KEY:-not-needed}
+      # CPU only (pas de GPU) → l'extraction d'entités peut prendre plusieurs
+      # minutes sur de gros chunks. Défaut LightRAG (240s) trop court.
+      LLM_TIMEOUT: ${LLM_TIMEOUT:-900}
+      EMBEDDING_TIMEOUT: ${EMBEDDING_TIMEOUT:-120}
+
+      # ── Vitesse d'indexation (CPU only) ───────────────────────
+      # MAX_GLEANING=0 : évite un 2e appel LLM par chunk ("ai-je tout
+      # extrait ?"), ~2x moins d'appels au modèle pour l'extraction.
+      MAX_GLEANING: ${MAX_GLEANING:-0}
+      # Chunks plus gros = moins de chunks = moins de fois où le gros
+      # prompt système d'extraction (fixe, coûteux) est rejoué.
+      CHUNK_SIZE: ${CHUNK_SIZE:-2000}
+      CHUNK_OVERLAP_SIZE: ${CHUNK_OVERLAP_SIZE:-150}
+
+      # ── Embeddings (idem) ──────────────────────────────────────
+      EMBEDDING_BINDING: ${EMBEDDING_BINDING:-ollama}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-nomic-embed-text}
+      EMBEDDING_DIM: ${EMBEDDING_DIM:-768}
+      EMBEDDING_BINDING_HOST: ${EMBEDDING_BINDING_HOST:-http://ollama:11435}
+
+      # ── Pas de reranker, pas d'OpenSearch ────────────────────
+      RERANK_BINDING: "null"
+
+      SUMMARY_LANGUAGE: French
+
+  # ── 4. LightRAG — Analyse confidentielle (documents sensibles) ─
+  # Instance séparée : volume et workspace dédiés, jamais mélangés
+  # avec la base de connaissance du service "lightrag" ci-dessus.
+  # Pour purger après une analyse : Purger-Analyse.bat
+  # (supprime uniquement lightrag_analyse_data, ne touche pas à lightrag_data)
+  #
+  # N'indexe QUE documents_confidentiels/ — pas de copie de la KB ici :
+  # réindexer toute la KB dans ce workspace coûterait aussi cher que la
+  # 1ère indexation (mêmes appels LLM répétés). Si une question a besoin
+  # de croiser avec le savoir général, interroge aussi l'onglet KB
+  # (http://localhost:9621/webui/) — pas de réindexation nécessaire.
+  lightrag-analyse:
+    image: ghcr.io/hkuds/lightrag:latest
+    container_name: lightrag-analyse
+    restart: unless-stopped
+    depends_on:
+      ollama:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:9622:9621"     # port différent — instance séparée
+    volumes:
+      - lightrag_analyse_data:/app/data                       # volume dédié, jamais partagé
+      - ./documents_confidentiels:/app/data/inputs/confidentiel
+    environment:
+      PORT: 9621
+      WEBUI_TITLE: "Analyse Confidentielle"
+      WEBUI_DESCRIPTION: "Zone isolée — à purger après analyse, non partagée avec la base de connaissance"
+      WORKSPACE: confidentiel
+
+      LLM_BINDING: ${LLM_BINDING:-ollama}
+      LLM_MODEL: ${LLM_MODEL:-phi4-mini:3.8b-q4_K_M}
+      LLM_BINDING_HOST: ${LLM_BINDING_HOST:-http://ollama:11435}
+      LLM_BINDING_API_KEY: ${LLM_BINDING_API_KEY:-not-needed}
+      LLM_TIMEOUT: ${LLM_TIMEOUT:-900}
+      EMBEDDING_TIMEOUT: ${EMBEDDING_TIMEOUT:-120}
+
+      MAX_GLEANING: ${MAX_GLEANING:-0}
+      CHUNK_SIZE: ${CHUNK_SIZE:-2000}
+      CHUNK_OVERLAP_SIZE: ${CHUNK_OVERLAP_SIZE:-150}
+
+      EMBEDDING_BINDING: ${EMBEDDING_BINDING:-ollama}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-nomic-embed-text}
+      EMBEDDING_DIM: ${EMBEDDING_DIM:-768}
+      EMBEDDING_BINDING_HOST: ${EMBEDDING_BINDING_HOST:-http://ollama:11435}
+
+      RERANK_BINDING: "null"
+      SUMMARY_LANGUAGE: French
+
+volumes:
+  ollama_data:            # modèles Ollama
+  lightrag_data:          # index de la base de connaissance (kb)
+  lightrag_analyse_data:  # index des documents confidentiels (à purger après usage)

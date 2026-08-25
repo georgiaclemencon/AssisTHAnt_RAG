@@ -1,0 +1,14 @@
+# Ne jamais committer de vrais documents — uniquement la structure
+knowledge_base/*
+!knowledge_base/.gitkeep
+documents_confidentiels/*
+!documents_confidentiels/.gitkeep
+knowledge_base_md_only/
+
+# Python
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
+Thumbs.db
