@@ -1,76 +1,99 @@
-# Assistant Documents — 100% local et confidentiel
+# AssisTHAnt RAG
 
-Pose des questions sur tes documents. **Rien ne sort de ton PC** : pas de cloud,
-pas d'API externe, tout tourne en local.
+Assistant de recherche documentaire **100% local**. Aucune donnée ne sort du PC — pas de cloud, pas d'API externe, tout tourne dans Docker.
 
----
-
-## Installation (une seule fois)
-
-1. Installe **Docker Desktop** : https://www.docker.com/products/docker-desktop/
-   (installation classique, "Suivant" à chaque étape)
-2. Lance Docker Desktop et attends que l'icône baleine soit stable dans la
-   barre des tâches.
-3. Copie ce dossier entier où tu veux sur ton PC.
-
-Prérequis : 8 Go de RAM minimum, ~5 Go d'espace disque.
-
-### Pré-charger une base de connaissance existante
-
-Avant le premier lancement, dépose les documents de l'entreprise (PDF, Word,
-TXT, Markdown...) dans le dossier **`knowledge_base/`**. Ils seront indexés
-automatiquement au démarrage — inutile de les envoyer manuellement via
-l'interface. C'est aussi ce dossier qui reçoit les documents ajoutés plus
-tard depuis l'onglet "Documents" du site.
+Deux usages séparés et étanches l'un de l'autre :
+- une **base de connaissance permanente** (documents d'entreprise réutilisables)
+- une **zone d'analyse ponctuelle** pour des documents sensibles, purgeable après usage, sans jamais polluer la base permanente
 
 ---
 
-## Démarrer
+## Comment ça marche
 
-Double-clique sur **`Demarrer.bat`**.
+Le projet fait tourner deux instances [LightRAG](https://github.com/HKUDS/LightRAG) totalement isolées (volumes Docker et workspaces distincts), toutes deux servies par un seul modèle [Ollama](https://ollama.com) local — pas de cloud, pas de clé API.
 
-- La 1ère fois : ça télécharge les modèles IA (~2.5 Go), compte **5 à 15 minutes**.
-- Les fois suivantes : ça démarre en ~30 secondes.
+```mermaid
+flowchart LR
+    subgraph Docker["Docker (localhost uniquement)"]
+        Ollama["Ollama\nphi4-mini + nomic-embed-text"]
+        KB["lightrag — KB\n:9621\nsavoir permanent"]
+        Analyse["lightrag-analyse\n:9622\nzone confidentielle"]
+    end
+    KB --> Ollama
+    Analyse --> Ollama
+    KB -.jamais mélangé.- Analyse
+```
 
-Ton navigateur s'ouvre automatiquement sur l'assistant. Si la page ne
-s'affiche pas tout de suite, patiente et rafraîchis (F5).
+- **`knowledge_base/`** → indexé sur http://localhost:9621/webui/, reste indéfiniment
+- **`documents_confidentiels/`** → indexé sur http://localhost:9622/webui/, à purger après usage (`Purger-Analyse.bat`)
+- **`query_enrichi.py`** → pose une question qui croise les deux : recherche le contexte pertinent dans la KB (sans génération, juste une recherche), puis l'injecte dans la réponse générée à partir du document déposé — une seule génération LLM au total, jamais de duplication d'index
 
----
-
-## Utiliser
-
-- Onglet **Documents** → dépose tes fichiers
-- Onglet **Retrieval** → pose tes questions
-- Onglet **Knowledge Graph** → visualise les relations entre documents
-
----
-
-## Arrêter
-
-Double-clique sur **`Arreter.bat`**.
-
-Tes documents et ton index sont conservés, rien n'est perdu.
+Schémas détaillés (composants + séquences d'échange) : [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ---
 
-## En cas de problème
+## Prérequis
 
-- **"Docker Desktop ne semble pas démarré"** → ouvre Docker Desktop et
-  réessaie une fois l'icône stable.
-- **Ça n'a jamais fini de télécharger** → vérifie ta connexion internet,
-  relance `Demarrer.bat`.
-- Pour tout autre souci, contacte la personne qui t'a fourni cet outil en
-  copiant le message d'erreur affiché.
+- **Docker Desktop** : https://www.docker.com/products/docker-desktop/
+- **Python 3** — uniquement pour `query_enrichi.py`
+- 8 Go de RAM minimum, ~6 Go d'espace disque
+
+### Windows : fix de performance recommandé
+
+Sans ça, l'indexation peut être anormalement lente (goulot mémoire de la VM WSL2). Une fois, avant le premier lancement :
+
+```powershell
+notepad "$env:UserProfile\.wslconfig"
+```
+```ini
+[wsl2]
+memory=16GB
+processors=8
+swap=0
+```
+```powershell
+wsl --shutdown
+```
+Puis relance Docker Desktop.
 
 ---
 
-## Notes techniques (pour la personne qui déploie)
+## Installation
 
-- Tout tourne en conteneurs Docker (Ollama + LightRAG), aucune dépendance
-  externe une fois les images téléchargées.
-- Ports exposés uniquement sur `127.0.0.1` (localhost) — pas accessibles
-  depuis le réseau.
-- Modèle par défaut : `qwen2.5:3b` (léger, tourne sur CPU). Pour changer,
-  édite `docker-compose.yml` / `.env`.
-- Option LM Studio disponible dans `.env` (voir les commentaires), au prix
-  de la portabilité 100%-Docker.
+```bash
+git clone https://github.com/georgiaclemencon/AssisTHAnt_RAG.git
+cd AssisTHAnt_RAG
+docker compose up -d
+```
+
+Premier lancement : télécharge le modèle LLM (~2,5 Go) et le modèle d'embeddings (~275 Mo) — compte 5 à 15 minutes. Les fois suivantes, ~30 secondes.
+
+Sans terminal : double-clic sur **`Demarrer.bat`**.
+
+---
+
+## Utilisation rapide
+
+| Action | Où |
+|---|---|
+| Ajouter un document permanent | Dépose dans `knowledge_base/`, scan sur http://localhost:9621/webui/ |
+| Analyser un document ponctuel/sensible | Dépose dans `documents_confidentiels/`, scan sur http://localhost:9622/webui/ |
+| Question croisant les deux | `python query_enrichi.py` (ou `Query-Enrichi.bat`) |
+| Purger la zone d'analyse | `Purger-Analyse.bat` |
+| Arrêter | `Arreter.bat` ou `docker compose down` |
+
+Guide complet, dépannage et limites connues : **[GUIDE.md](./GUIDE.md)**.
+
+---
+
+## Limites connues
+
+- Recherche **sémantique**, pas un `grep` — pas de garantie de détecter un motif exact (email, IBAN, clé API...) mot pour mot.
+- CPU only : pas de GPU dans cette configuration, temps de réponse dépendant de la taille du document.
+- La zone d'analyse n'a par défaut aucune connaissance de la base permanente, sauf via `query_enrichi.py`.
+
+---
+
+## Licence
+
+À définir par le mainteneur du repo avant publication.
