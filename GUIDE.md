@@ -1,119 +1,123 @@
-# Guide d'installation — Assistant Documents (RAG local)
+# Installation Guide — Document Assistant (local RAG)
 
-Assistant de recherche documentaire 100% local. Aucune donnée ne sort du PC.
+A 100% local document search assistant. No data ever leaves the machine.
 
 ---
 
-## 1. Prérequis
+## 1. Prerequisites
 
-- **Docker Desktop** : https://www.docker.com/products/docker-desktop/
-- **Python 3** (déjà installé sur la plupart des PC Windows pro ; sinon https://www.python.org/downloads/) — uniquement pour le script de question enrichie
-- **8 Go de RAM** minimum, **6 Go d'espace disque** (modèles + index)
+- **Docker** — Docker Desktop on Windows/macOS: https://www.docker.com/products/docker-desktop/, Docker Engine + Compose plugin on Linux: `curl -fsSL https://get.docker.com | sh`
+- **Python 3** (already installed on most Windows/macOS/Linux machines; otherwise https://www.python.org/downloads/) — only needed for the enriched-query script
+- **8 GB RAM** minimum, **6 GB disk space** (models + index)
 
-### Fix de performance recommandé (Windows + Docker Desktop)
+### Recommended performance fix (Windows + Docker Desktop)
 
-Sans ça, l'indexation/les réponses peuvent être anormalement lentes (goulot d'étranglement mémoire de la VM WSL2). À faire une fois :
+Without it, indexing/answers can be abnormally slow (a memory bottleneck in the WSL2 VM). Do this once:
 
-1. PowerShell :
+1. PowerShell:
    ```powershell
    notepad "$env:UserProfile\.wslconfig"
    ```
-2. Colle (adapte `memory` à ~50% de la RAM totale du PC) :
+2. Paste (adjust `memory` to ~50% of the machine's total RAM):
    ```ini
    [wsl2]
    memory=16GB
    processors=8
    swap=0
    ```
-3. Redémarre WSL (coupe les conteneurs Docker en cours, normal) :
+3. Restart WSL (this stops any running Docker containers, that's expected):
    ```powershell
    wsl --shutdown
    ```
-4. Relance Docker Desktop, attends que l'icône baleine soit stable.
+4. Relaunch Docker Desktop and wait until the whale icon is stable.
+
+Linux has no WSL2-style virtualization layer — Docker Engine uses host memory directly, so this fix doesn't apply. Just make sure the host has enough free RAM (8 GB+).
 
 ---
 
 ## 2. Installation
 
-1. Copie tout le dossier du projet où tu veux sur ton PC.
-2. Ouvre un terminal dans ce dossier (clic droit → "Ouvrir dans le terminal", ou `cd` en PowerShell/Git Bash).
-3. Lance :
+1. Copy the whole project folder anywhere on your machine.
+2. Open a terminal in that folder (right-click → "Open in terminal", or `cd` in PowerShell/Git Bash/a Linux shell).
+3. Run:
    ```bash
    docker compose up -d
    ```
 
-**Premier lancement uniquement** : télécharge Ollama, le modèle LLM (`phi4-mini`, ~2,5 Go) et le modèle d'embeddings (~275 Mo). Compte **5 à 15 minutes**. Les fois suivantes, ~30 secondes.
+**First launch only**: downloads Ollama, the LLM model (`phi4-mini`, ~2.5 GB) and the embedding model (~275 MB). Takes **5 to 15 minutes**. Subsequent launches: ~30 seconds.
 
-Alternative sans terminal : double-clic sur **`Demarrer.bat`**.
+Alternative without a terminal:
+- Windows: double-click **`Start.bat`**.
+- Linux/macOS: `./start.sh` (first time only: `chmod +x *.sh`).
 
 ---
 
-## 3. Structure du projet
+## 3. Project structure
 
-| Élément | Rôle |
+| Item | Role |
 |---|---|
-| `knowledge_base\` | Documents **permanents** de l'entreprise (savoir réutilisable) |
-| `documents_confidentiels\` | Documents **ponctuels/sensibles** à analyser, isolés de la base permanente |
-| `docker-compose.yml` | Config des services (Ollama, KB, Analyse) |
-| `.env` | Choix du modèle LLM et autres réglages |
-| `Demarrer.bat` / `Arreter.bat` | Démarrer/arrêter toute la stack sans terminal |
-| `Purger-Analyse.bat` | Vide la zone d'analyse confidentielle (index + fichiers) |
-| `query_enrichi.py` / `Query-Enrichi.bat` | Chat qui croise base permanente + document déposé, en une seule réponse |
+| `knowledge_base/` | **Permanent** company documents (reusable knowledge) |
+| `documents_confidentiels/` | **One-off/sensitive** documents to analyze, isolated from the permanent base |
+| `docker-compose.yml` | Service config (Ollama, KB, Analysis) |
+| `.env` | LLM model choice and other settings |
+| `Start.bat` / `Stop.bat` (Windows), `start.sh` / `stop.sh` (Linux/macOS) | Start/stop the whole stack without a terminal |
+| `Purge-Analysis.bat` (Windows), `purge-analysis.sh` (Linux/macOS) | Empties the confidential analysis zone (index + files) |
+| `enriched_query.py` / `Enriched-Query.bat` (Windows) / `enriched-query.sh` (Linux/macOS) | Chat that combines the permanent base + a deposited document, in a single answer |
 
-Deux interfaces web séparées, volontairement isolées l'une de l'autre :
-- **Base de connaissance** : http://localhost:9621/webui/
-- **Analyse confidentielle** : http://localhost:9622/webui/
-
----
-
-## 4. Utilisation
-
-### Ajouter un document à la base permanente
-1. Dépose le fichier dans `knowledge_base\`
-2. Indexe-le : onglet **Documents** de http://localhost:9621/webui/ (ou `curl -X POST http://localhost:9621/documents/scan`)
-3. Attends le statut **"Processed"**
-4. Pose tes questions dans l'onglet **Retrieval** de la même page (chat multi-tours, historique conservé automatiquement)
-
-### Analyser un document ponctuel/sensible
-1. Dépose le fichier dans `documents_confidentiels\`
-2. Indexe-le : onglet Documents de http://localhost:9622/webui/ (ou `curl -X POST http://localhost:9622/documents/scan`)
-3. Attends **"Processed"**
-4. Questions dans l'onglet Retrieval de cette même page — **sans** croisement avec la base permanente
-
-### Poser une question enrichie (base permanente + document déposé, une seule réponse)
-```bash
-python query_enrichi.py
-```
-ou double-clic sur `Query-Enrichi.bat`. Conversation multi-tours (tape `quit` pour arrêter). Réponses toujours en français (modifiable dans `SYSTEM_INSTRUCTIONS` en haut du fichier).
-
-### Purger la zone d'analyse après usage
-Double-clic sur **`Purger-Analyse.bat`** — supprime tout ce qui est indexé dans la zone confidentielle. Ne touche jamais à la base permanente.
-
-### Arrêter / relancer
-```bash
-docker compose down     # arrêt
-docker compose up -d    # relance
-```
-ou `Arreter.bat` / `Demarrer.bat`.
+Two separate web interfaces, deliberately isolated from each other:
+- **Knowledge base**: http://localhost:9621/webui/
+- **Confidential analysis**: http://localhost:9622/webui/
 
 ---
 
-## 5. Dépannage
+## 4. Usage
 
-| Symptôme | Cause probable | Solution |
+### Add a document to the permanent base
+1. Drop the file into `knowledge_base/`
+2. Index it: **Documents** tab at http://localhost:9621/webui/ (or `curl -X POST http://localhost:9621/documents/scan`)
+3. Wait for the **"Processed"** status
+4. Ask your questions in the **Retrieval** tab of the same page (multi-turn chat, history kept automatically)
+
+### Analyze a one-off/sensitive document
+1. Drop the file into `documents_confidentiels/`
+2. Index it: Documents tab at http://localhost:9622/webui/ (or `curl -X POST http://localhost:9622/documents/scan`)
+3. Wait for **"Processed"**
+4. Ask questions in the Retrieval tab of that same page — **without** crossing over into the permanent base
+
+### Ask an enriched question (permanent base + deposited document, single answer)
+```bash
+python enriched_query.py
+```
+or double-click `Enriched-Query.bat` (Windows) / run `./enriched-query.sh` (Linux/macOS). Multi-turn conversation (type `quit` to stop). Answers are always in English (configurable in `SYSTEM_INSTRUCTIONS` at the top of the file).
+
+### Purge the analysis zone after use
+Windows: double-click **`Purge-Analysis.bat`**. Linux/macOS: run **`./purge-analysis.sh`** — deletes everything indexed in the confidential zone. Never touches the permanent base.
+
+### Stop / restart
+```bash
+docker compose down     # stop
+docker compose up -d    # restart
+```
+or `Stop.bat` / `Start.bat` (Windows), `./stop.sh` / `./start.sh` (Linux/macOS).
+
+---
+
+## 5. Troubleshooting
+
+| Symptom | Likely cause | Fix |
 |---|---|---|
-| `dependency failed to start: container ollama is unhealthy` | Ancien souci de healthcheck | Déjà corrigé dans ce projet — si ça revient, vérifier `docker compose logs ollama` |
-| Document en statut `Failed` avec `httpx.ReadTimeout` | CPU trop lent pour le délai imparti (900s) | Relancer un scan (`.../documents/scan`) — LightRAG reprend les documents en échec. Si ça persiste : voir le fix `.wslconfig` (section 1) |
-| Réponses très lentes (plusieurs minutes) malgré peu de contenu | Goulot mémoire WSL2 | Appliquer le fix `.wslconfig` (section 1) |
-| Erreur `"There was an error parsing the body"` sur une requête `curl` manuelle | Caractères accentués envoyés en ligne de commande directe | Écrire le JSON dans un fichier (`--data-binary @fichier.json`) plutôt qu'en `-d '...'` inline |
+| `dependency failed to start: container ollama is unhealthy` | Old healthcheck issue | Already fixed in this project — if it recurs, check `docker compose logs ollama` |
+| Document stuck in `Failed` status with `httpx.ReadTimeout` | CPU too slow for the configured timeout (900s) | Re-run a scan (`.../documents/scan`) — LightRAG retries failed documents. If it persists: see the `.wslconfig` fix (section 1) |
+| Answers very slow (several minutes) despite little content | WSL2 memory bottleneck | Apply the `.wslconfig` fix (section 1) |
+| `"There was an error parsing the body"` error on a manual `curl` request | Accented characters sent directly on the command line | Write the JSON to a file (`--data-binary @file.json`) instead of an inline `-d '...'` |
 
-Logs d'un service : `docker compose logs -f lightrag` (ou `ollama`, `lightrag-analyse`).
+Logs for a service: `docker compose logs -f lightrag` (or `ollama`, `lightrag-analyse`).
 
 ---
 
-## 6. Limites connues
+## 6. Known limitations
 
-- Recherche **sémantique**, pas un `grep` — pas de garantie de détecter un motif exact (email, IBAN, clé API...) mot pour mot.
-- Temps de réponse dépendant de la taille du document et du CPU disponible (pas de GPU dans cette configuration).
-- La zone d'analyse (9622) n'a par défaut **aucune connaissance** de la base permanente sauf via `query_enrichi.py` (évite de dupliquer l'indexation).
-- Le croisement base permanente + document (`query_enrichi.py`) n'est pas disponible depuis l'interface web standard, uniquement via ce script.
+- **Semantic** search, not `grep` — no guarantee of catching an exact pattern (email, IBAN, API key...) verbatim.
+- Response time depends on document size and available CPU (no GPU in this configuration).
+- The analysis zone (9622) has by default **no knowledge** of the permanent base except via `enriched_query.py` (avoids duplicating indexing).
+- Crossing the permanent base with a deposited document (`enriched_query.py`) is not available from the standard web interface, only via this script.

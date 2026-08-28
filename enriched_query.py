@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Conversation enrichie : a chaque question, recherche le contexte dans la KB
-(9621, lecture seule, pas de generation), puis l'injecte dans la question
-posee a l'instance Analyse (9622) qui fait la synthese finale. L'historique
-de la conversation est conserve tant que le script tourne.
+Enriched conversation: for each question, retrieves context from the KB
+(9621, read-only, no generation), then injects it into the question sent
+to the Analysis instance (9622), which produces the final answer. The
+conversation history is kept in memory for as long as the script runs.
 
 Usage:
-    python query_enrichi.py
-    (tape 'quit' ou Ctrl+C pour arreter)
+    python enriched_query.py
+    (type 'quit' or Ctrl+C to stop)
 """
 import json
 import subprocess
@@ -17,10 +17,10 @@ from pathlib import Path
 
 KB_URL = "http://127.0.0.1:9621/query"
 ANALYSE_URL = "http://127.0.0.1:9622/query"
-MAX_HISTORY_TURNS = 6  # nombre de tours (question+reponse) gardes en memoire
+MAX_HISTORY_TURNS = 6  # number of turns (question+answer) kept in memory
 
-# Instructions systeme appliquees a chaque reponse finale (via user_prompt).
-SYSTEM_INSTRUCTIONS = "Reponds uniquement en francais, quelle que soit la langue de la question ou des documents sources."
+# System instructions applied to every final answer (via user_prompt).
+SYSTEM_INSTRUCTIONS = "Answer only in English, regardless of the language of the question or the source documents."
 
 
 def curl_post(url: str, payload: dict) -> dict:
@@ -40,7 +40,7 @@ def curl_post(url: str, payload: dict) -> dict:
 
 
 def ask(question: str, history: list) -> str:
-    print("[1/2] Recherche dans la base de connaissance (KB, 9621)...")
+    print("[1/2] Searching the knowledge base (KB, 9621)...")
     kb_result = curl_post(KB_URL, {
         "query": question,
         "mode": "naive",
@@ -48,14 +48,14 @@ def ask(question: str, history: list) -> str:
     })
     kb_context = kb_result.get("response", "")
     if not kb_context:
-        print("  -> Aucun contexte KB trouve. On continue sans enrichissement.")
+        print("  -> No KB context found. Continuing without enrichment.")
 
-    print("[2/2] Generation de la reponse enrichie (Analyse, 9622)...")
+    print("[2/2] Generating the enriched answer (Analysis, 9622)...")
     user_prompt = SYSTEM_INSTRUCTIONS
     if kb_context:
         user_prompt += (
-            "\n\nContexte additionnel de la base de connaissance de l'entreprise, "
-            "utilise-le si pertinent pour ta reponse:\n" + kb_context
+            "\n\nAdditional context from the company knowledge base, "
+            "use it if relevant to your answer:\n" + kb_context
         )
 
     payload = {
@@ -70,20 +70,20 @@ def ask(question: str, history: list) -> str:
 
 
 def main():
-    print("Conversation enrichie (KB + document). Tape 'quit' pour arreter.\n")
+    print("Enriched conversation (KB + document). Type 'quit' to stop.\n")
     history = []
 
     while True:
         try:
-            question = input("You : ").strip()
+            question = input("You: ").strip()
         except (EOFError, KeyboardInterrupt):
-            print("\nFin de la conversation.")
+            print("\nEnding the conversation.")
             break
 
         if not question:
             continue
         if question.lower() in ("quit", "exit", "q"):
-            print("Fin de la conversation.")
+            print("Ending the conversation.")
             break
 
         answer = ask(question, history)

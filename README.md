@@ -25,7 +25,7 @@ flowchart LR
 ```
 
 - **`knowledge_base/`** → indexed at http://localhost:9621/webui/, kept indefinitely
-- **`documents_confidentiels/`** → indexed at http://localhost:9622/webui/, purge after use (`Purge-Analysis.bat`)
+- **`documents_confidentiels/`** → indexed at http://localhost:9622/webui/, purge after use (`Purge-Analysis.bat` / `purge-analysis.sh`)
 - **`enriched_query.py`** → asks a question that draws on both: retrieves relevant context from the KB (no generation, just a search), then injects it into the answer generated from the deposited document — a single LLM generation call in total, no duplicated indexing
 
 Detailed diagrams (components + sequence flows): [ARCHITECTURE.md](./ARCHITECTURE.md).
@@ -33,14 +33,14 @@ Detailed diagrams (components + sequence flows): [ARCHITECTURE.md](./ARCHITECTUR
 ---
 
 ## Prerequisites
-
+- **Git** +
 - **Docker** (see OS-specific instructions below)
 - **Python 3** — only needed for `enriched_query.py`
-- 8 GB RAM minimum, ~6 GB disk space
+- 8 GB RAM minimum, ~6 GB disk space minimum
 
 ### Windows
 
-1. Install **Docker Desktop**: https://www.docker.com/products/docker-desktop/
+1. Install **Docker Desktop**: https://www.docker.com/products/docker-desktop/ 
 2. Launch it and wait for the whale icon to go stable in the system tray.
 
 **Recommended performance fix**: without it, indexing can be abnormally slow (a memory bottleneck in the WSL2 VM). Once, before first launch:
@@ -81,19 +81,22 @@ docker compose up -d
 
 First launch: downloads the LLM (~2.5 GB) and the embedding model (~275 MB) — takes 5 to 15 minutes. Subsequent launches: ~30 seconds.
 
-Without a terminal (Windows): double-click **`Start.bat`**.
+Without a terminal:
+- Windows: double-click **`Start.bat`**.
+- Linux/macOS: `./start.sh` (first time only: `chmod +x *.sh`).
 
 ---
 
 ## Quick usage
 
-| Action | Where |
-|---|---|
-| Add a permanent document | Drop it in `knowledge_base/`, scan at http://localhost:9621/webui/ |
-| Analyze a one-off/sensitive document | Drop it in `documents_confidentiels/`, scan at http://localhost:9622/webui/ |
-| Question drawing on both | `python enriched_query.py` (or `Enriched-Query.bat`) |
-| Purge the analysis zone | `Purge-Analysis.bat` |
-| Stop | `Stop.bat` or `docker compose down` |
+| Action | Windows | Linux/macOS |
+|---|---|---|
+| Add a permanent document | Drop it in `knowledge_base/`, scan at http://localhost:9621/webui/ | same |
+| Analyze a one-off/sensitive document | Drop it in `documents_confidentiels/`, scan at http://localhost:9622/webui/ | same |
+| Question drawing on both | `python enriched_query.py` (or `Enriched-Query.bat`) | `python3 enriched_query.py` (or `./enriched-query.sh`) |
+| Purge the analysis zone | `Purge-Analysis.bat` | `./purge-analysis.sh` |
+| Start | `Start.bat` | `./start.sh` |
+| Stop | `Stop.bat` or `docker compose down` | `./stop.sh` or `docker compose down` |
 
 Full guide, troubleshooting and known limitations: **[GUIDE.md](./GUIDE.md)**.
 
