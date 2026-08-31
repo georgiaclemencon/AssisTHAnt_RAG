@@ -241,7 +241,9 @@ If a format you need isn't supported, convert it to `.md`/`.txt`/`.pdf` before d
 
 ## FAQ
 
-### How do I delete everything?
+<a id="how-do-i-delete-everything"></a>
+<details>
+<summary><b>How do I delete everything?</b></summary>
 
 - **Everything (both instances, all models, full reset)**:
   ```bash
@@ -256,7 +258,10 @@ If a format you need isn't supported, convert it to `.md`/`.txt`/`.pdf` before d
   ```
 - **Only the confidential analysis zone** (index + optionally the source files, keeps the KB and Ollama untouched): use `quickusage/Purge-Analysis.bat` or `quickusage/purge-analysis.sh` — see [Quick usage](#quick-usage).
 
-### Where are chunks/parsed data stored?
+</details>
+
+<details>
+<summary><b>Where are chunks/parsed data stored?</b></summary>
 
 Each LightRAG instance keeps its working data inside its own named Docker volume, mounted at `/app/data` (`WORKING_DIR`), namespaced by its `WORKSPACE` (`kb` or `confidential` — see [docker-compose.yml](./docker-compose.yml)):
 
@@ -268,16 +273,24 @@ These are the defaults documented by [LightRAG](https://github.com/HKUDS/LightRA
 
 The **raw source files** you drop are separate: they live in the bind-mounted `knowledge_base/` and `confidential_documents/` folders (visible directly on the host, not inside a Docker volume).
 
-### What permissions does the container run with (root/rootless)?
+</details>
+
+<details>
+<summary><b>What permissions does the container run with (root/rootless)?</b></summary>
 
 The official `ghcr.io/hkuds/lightrag` image's entrypoint **starts as root, fixes ownership on the mounted volumes, then drops privileges to a dedicated non-root `lightrag` user (UID 1000)** before running the server. In practice:
 - You don't need to `chmod`/`chown` `knowledge_base/` or `confidential_documents/` yourself — the entrypoint fixes ownership on startup.
 - Docker Desktop on Windows runs the daemon inside a WSL2 VM regardless — the "rootless mode" question (relevant for the Docker *daemon* on Linux) doesn't apply there.
 - On Linux, this project doesn't require or configure rootless Docker; the default (rootful) Docker Engine daemon is assumed, as installed by `get.docker.com` in the Prerequisites section. Rootless Docker daemon mode is untested here.
 
-### What are the `/app/data` volumes for?
+</details>
+
+<details>
+<summary><b>What are the <code>/app/data</code> volumes for?</b></summary>
 
 `/app/data` is each LightRAG container's `WORKING_DIR` — where it persists everything described above (KV/vector/graph storage). It's backed by a **named Docker volume** (`lightrag_data` for the KB, `lightrag_analyse_data` for the analysis zone), separate from the bind-mounted `inputs/` subfolder inside it, which is where `knowledge_base/` and `confidential_documents/` are mounted (see `volumes:` in [docker-compose.yml](./docker-compose.yml)). Deleting one of these volumes (`docker volume rm ...`) wipes that instance's index but never touches the other instance or the source files on the host.
+
+</details>
 
 ---
 
