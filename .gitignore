@@ -1,8 +1,8 @@
-# Ne jamais committer de vrais documents — uniquement la structure
+# Never commit real documents — structure only
 knowledge_base/*
 !knowledge_base/.gitkeep
-documents_confidentiels/*
-!documents_confidentiels/.gitkeep
+confidential_documents/*
+!confidential_documents/.gitkeep
 knowledge_base_md_only/
 
 # Python
@@ -12,3 +12,6 @@ __pycache__/
 # OS
 .DS_Store
 Thumbs.db
+
+.env
+

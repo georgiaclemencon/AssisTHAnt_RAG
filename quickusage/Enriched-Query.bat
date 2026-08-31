@@ -1,5 +1,5 @@
 @echo off
-cd /d "%~dp0"
+cd /d "%~dp0.."
 chcp 65001 >nul
 python enriched_query.py
 pause

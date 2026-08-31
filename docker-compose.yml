@@ -1,7 +1,8 @@
 # Pinned project name so volume names stay stable regardless of the
-# folder name this repo is cloned into (e.g. Start.bat/start.sh,
-# Purge-Analysis.bat/purge-analysis.sh reference volumes by their full
-# name: assisthant-rag_lightrag_data, etc.)
+# folder name this repo is cloned into (e.g. quickusage/Start.bat and
+# quickusage/start.sh, quickusage/Purge-Analysis.bat and
+# quickusage/purge-analysis.sh reference volumes by their full name:
+# assisthant-rag_lightrag_data, etc.)
 name: assisthant-rag
 
 services:
@@ -104,10 +105,10 @@ services:
   # ── 4. LightRAG — confidential analysis (sensitive documents) ─
   # Separate instance: dedicated volume and workspace, never mixed
   # with the "lightrag" knowledge base service above.
-  # To purge after an analysis: Purge-Analysis.bat / purge-analysis.sh
+  # To purge after an analysis: quickusage/Purge-Analysis.bat / purge-analysis.sh
   # (removes only lightrag_analyse_data, never touches lightrag_data)
   #
-  # Indexes documents_confidentiels/ ONLY — no copy of the KB here:
+  # Indexes confidential_documents/ ONLY — no copy of the KB here:
   # re-indexing the whole KB into this workspace would cost as much as
   # the original indexing (same LLM calls repeated). If a question
   # needs to cross-reference the general knowledge base, query the KB
@@ -123,12 +124,12 @@ services:
       - "127.0.0.1:9622:9621"     # different port — separate instance
     volumes:
       - lightrag_analyse_data:/app/data                       # dedicated volume, never shared
-      - ./documents_confidentiels:/app/data/inputs/confidentiel
+      - ./confidential_documents:/app/data/inputs/confidential
     environment:
       PORT: 9621
       WEBUI_TITLE: "Confidential Analysis"
       WEBUI_DESCRIPTION: "Isolated zone — purge after analysis, not shared with the knowledge base"
-      WORKSPACE: confidentiel
+      WORKSPACE: confidential
 
       LLM_BINDING: ${LLM_BINDING:-ollama}
       LLM_MODEL: ${LLM_MODEL:-phi4-mini:3.8b-q4_K_M}

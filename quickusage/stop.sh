@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Linux/macOS equivalent of Stop.bat
 set -u
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
 echo "Stopping the document assistant..."
 docker compose down

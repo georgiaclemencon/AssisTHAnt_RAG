@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Linux/macOS equivalent of Purge-Analysis.bat
 set -u
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
 echo "============================================"
 echo "  Purging the \"Confidential Analysis\" zone"
 echo "============================================"
 echo
 echo "This PERMANENTLY deletes everything indexed in the"
-echo "confidential analysis zone (documents_confidentiels/"
+echo "confidential analysis zone (confidential_documents/"
 echo "and its index)."
 echo
 echo "The main knowledge base is NOT affected."
@@ -31,10 +31,10 @@ docker compose rm -f lightrag-analyse
 docker volume rm assisthant-rag_lightrag_analyse_data 2>/dev/null
 
 echo
-read -rp "Also delete the source files in documents_confidentiels/ ? (y/n): " CONFIRM2
+read -rp "Also delete the source files in confidential_documents/ ? (y/n): " CONFIRM2
 case "$CONFIRM2" in
     [yY])
-        find documents_confidentiels -mindepth 1 -delete 2>/dev/null
+        find confidential_documents -mindepth 1 -delete 2>/dev/null
         echo "Source files deleted."
         ;;
 esac

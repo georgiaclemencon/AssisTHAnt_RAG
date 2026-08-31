@@ -1,6 +1,6 @@
 @echo off
 setlocal
-cd /d "%~dp0"
+cd /d "%~dp0.."
 chcp 65001 >nul
 title Document Assistant - Stopping
 

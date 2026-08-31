@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Linux/macOS equivalent of Start.bat
 set -u
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
 echo "============================================"
 echo "  Document Assistant - Starting"

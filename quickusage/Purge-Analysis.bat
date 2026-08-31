@@ -1,6 +1,6 @@
 @echo off
 setlocal
-cd /d "%~dp0"
+cd /d "%~dp0.."
 chcp 65001 >nul
 title Purge the Confidential Analysis Zone
 
@@ -9,7 +9,7 @@ echo   Purging the "Confidential Analysis" zone
 echo ============================================
 echo.
 echo This PERMANENTLY deletes everything indexed in the
-echo confidential analysis zone (documents_confidentiels\
+echo confidential analysis zone (confidential_documents\
 echo and its index).
 echo.
 echo The main knowledge base is NOT affected.
@@ -30,10 +30,10 @@ docker compose rm -f lightrag-analyse
 docker volume rm assisthant-rag_lightrag_analyse_data 2>nul
 
 echo.
-set /p CONFIRM2="Also delete the source files in documents_confidentiels\ ? (y/n): "
+set /p CONFIRM2="Also delete the source files in confidential_documents\ ? (y/n): "
 if /i "%CONFIRM2%"=="y" (
-    del /q "documents_confidentiels\*" 2>nul
-    for /d %%d in ("documents_confidentiels\*") do rmdir /s /q "%%d"
+    del /q "confidential_documents\*" 2>nul
+    for /d %%d in ("confidential_documents\*") do rmdir /s /q "%%d"
     echo Source files deleted.
 )
 
