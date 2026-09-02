@@ -16,7 +16,6 @@ The project runs two fully isolated [LightRAG](https://github.com/HKUDS/LightRAG
 - **`confidential_documents/`** → indexed at http://localhost:9622/webui/, purge after use (`quickusage/Purge-Analysis.bat` / `quickusage/purge-analysis.sh`)
 - **`enriched_query.py`** → asks a question that draws on both: retrieves relevant context from the KB (no generation, just a search), then injects it into the answer generated from the deposited document — a single LLM generation call in total, no duplicated indexing
 
----
 
 ## Architecture
 
@@ -134,38 +133,7 @@ sequenceDiagram
 - **Python 3** — only needed for `enriched_query.py`
 - 8 GB RAM minimum, ~6 GB disk space minimum
 
-### Windows
 
-1. Install **Docker Desktop**: https://www.docker.com/products/docker-desktop/
-2. Launch it and wait for the whale icon to go stable in the system tray.
-
-**Recommended performance fix**: without it, indexing can be abnormally slow (a memory bottleneck in the WSL2 VM). Once, before first launch:
-```powershell
-notepad "$env:UserProfile\.wslconfig"
-```
-```ini
-[wsl2]
-memory=16GB
-processors=8
-swap=0
-```
-```powershell
-wsl --shutdown
-```
-Then relaunch Docker Desktop.
-
-### Linux
-
-Install Docker Engine + the Compose plugin:
-```bash
-curl -fsSL https://get.docker.com | sh
-sudo usermod -aG docker $USER   # log out/in afterwards
-```
-Docker Compose v2 ships as the `docker compose` plugin on modern installs — verify with `docker compose version`.
-
-No WSL2-style virtualization layer on Linux — Docker Engine uses host memory directly, so the Windows performance fix above does not apply. Just make sure the host itself has enough free RAM (8 GB+) for the model.
-
----
 
 ## Installation
 
@@ -193,7 +161,6 @@ Without a terminal:
 | Add a permanent document | Drop it in `knowledge_base/`, scan at http://localhost:9621/webui/ | same |
 | Analyze a one-off/sensitive document | Drop it in `confidential_documents/`, scan at http://localhost:9622/webui/ | same |
 | Enriched query | `python enriched_query.py` (or `quickusage\Enriched-Query.bat`) | `python3 enriched_query.py` (or `./quickusage/enriched-query.sh`) |
-| Purge the analysis zone | `quickusage\Purge-Analysis.bat` | `./quickusage/purge-analysis.sh` |
 | Start | `quickusage\Start.bat` | `./quickusage/start.sh` |
 | Stop | `quickusage\Stop.bat` or `docker compose down` | `./quickusage/stop.sh` or `docker compose down` |
 
@@ -230,10 +197,7 @@ LightRAG parses documents through a pluggable **parser engine** (`LIGHTRAG_PARSE
 - **`.pdf`** — text-based PDFs
 - **`.docx`** — Word documents
 
-Depending on the exact image version and parser engine active (`native`, `legacy`, `mineru`, `docling`, …), additional formats may work out of the box — e.g. `.pptx`, `.xlsx`, scanned PDFs/images via OCR. Because this list is version-dependent, check the **authoritative, live list for your exact deployment** rather than trusting a static list:
 
-- Try dropping the file in the WebUI (http://localhost:9621/webui/ or :9622) — unsupported formats are rejected immediately with a clear error.
-- Or check the API's OpenAPI docs at http://localhost:9621/docs for the document-routes schema.
 
 If a format you need isn't supported, convert it to `.md`/`.txt`/`.pdf` before dropping it in `knowledge_base/` or `confidential_documents/`.
 
